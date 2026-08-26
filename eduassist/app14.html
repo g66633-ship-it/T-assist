@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- 検索エンジンへのインデックス・巡回を拒否するタグ -->
+  <meta name="robots" content="noindex, nofollow">
+  
+  <title>EduAssist Pro - 付知北小学校教員支援</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    body { background: #f1f5f9; color: #1e293b; display: flex; height: 100vh; overflow: hidden; }
+    
+    #sidebar { width: 260px; background: #0f172a; color: #fff; padding: 20px; display: flex; flex-direction: column; gap: 16px; flex-shrink: 0; }
+    #sidebar h1 { font-size: 18px; color: #38bdf8; font-weight: bold; }
+    .profile-card { background: #1e293b; padding: 12px; border-radius: 8px; font-size: 13px; }
+    .profile-card select { width: 100%; margin-top: 6px; padding: 8px; border-radius: 4px; background: #334155; color: #fff; border: none; font-size: 14px; }
+    .nav-btn { background: transparent; color: #94a3b8; border: none; text-align: left; padding: 10px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; width: 100%; transition: all 0.2s; }
+    .nav-btn.active, .nav-btn:hover { background: #0284c7; color: #fff; }
+
+    #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; width: 100%; }
+    header { background: #fff; padding: 12px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+    header h2 { font-size: 18px; }
+    .header-btns { display: flex; gap: 8px; align-items: center; }
+    
+    .content { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+    .card { background: #fff; padding: 16px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    
+    .task-input { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .task-input input, .task-input select { padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; }
+    .task-input input[type="text"] { flex: 1; min-width: 180px; }
+    
+    .btn { background: #0284c7; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; }
+    .btn:hover { background: #0369a1; }
+    .btn-sync { background: #16a34a; }
+    .btn-sync:hover { background: #15803d; }
+    .btn-reset { background: #dc2626; font-size: 11px; padding: 6px 10px; }
+    .btn-reset:hover { background: #b91c1c; }
+
+    .board { display: flex; gap: 16px; flex: 1; overflow-x: auto; padding-bottom: 8px; }
+    .column { flex: 1; min-width: 280px; background: #e2e8f0; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; max-height: 100%; }
+    .column-header { font-size: 14px; font-weight: bold; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; padding-bottom: 6px; border-bottom: 2px solid #cbd5e1; }
+    .column-todo { border-color: #ef4444; color: #991b1b; }
+    .column-doing { border-color: #f59e0b; color: #92400e; }
+    .column-done { border-color: #10b981; color: #065f46; }
+    
+    .task-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; min-height: 50px; }
+    
+    .task-card { background: #fff; border-radius: 6px; padding: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 8px; cursor: grab; transition: transform 0.1s; }
+    .task-card:active { cursor: grabbing; transform: scale(0.98); }
+    .task-title { font-size: 14px; font-weight: bold; color: #0f172a; line-height: 1.4; }
+    .task-meta { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+    
+    .badge { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: #e0f2fe; color: #0369a1; font-weight: bold; }
+    .badge-date { background: #f3e8ff; color: #6b21a8; }
+    
+    .card-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; padding-top: 6px; border-top: 1px solid #f1f5f9; }
+    .move-btn-group { display: flex; gap: 4px; }
+    .btn-move { background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; }
+    .btn-move:hover { background: #e2e8f0; }
+    .btn-del { color: #ef4444; border: none; background: none; cursor: pointer; font-size: 11px; margin-left: auto; }
+
+    @media (max-width: 768px) {
+      body { flex-direction: column; overflow: auto; }
+      #sidebar { width: 100%; height: auto; padding: 12px; gap: 10px; }
+      #main { height: auto; overflow: visible; }
+      .content { overflow: visible; }
+      .board { flex-direction: column; overflow-x: visible; }
+      .column { min-width: 100%; max-height: none; }
+      .task-list { max-height: 400px; }
+    }
+  </style>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+</head>
+<body>
+
+  <div id="sidebar">
+    <h1>EduAssist Pro</h1>
+    <div class="profile-card">
+      <label><b>自分の担当設定</b></label>
+      <select id="userRole">
+        <option value="1年担任">1年担任</option>
+        <option value="2年担任">2年担任</option>
+        <option value="3年担任">3年担任</option>
+        <option value="4年担任" selected>4年担任</option>
+        <option value="5年担任">5年担任</option>
+        <option value="6年担任">6年担任</option>
+        <option value="教務主任">教務主任</option>
+        <option value="保健主事">保健主事</option>
+      </select>
+    </div>
+    <button class="nav-btn active" id="btnMy" onclick="filterTasks('my')">★ 自分に関係するTodo</button>
+    <button class="nav-btn" id="btnAll" onclick="filterTasks('all')">全職員のTodo一覧</button>
+  </div>
+
+  <div id="main">
+    <header>
+      <h2 id="viewTitle">★ 自分に関係するTodo</h2>
+      <div class="header-btns">
+        <button class="btn btn-sync" onclick="syncTasks()">共通タスクの更新（不足分のみ追加）</button>
+        <button class="btn btn-reset" onclick="resetDatabase()">初期化</button>
+      </div>
+    </header>
+
+    <div class="content">
+      <div class="card">
+        <h3 style="font-size: 14px;">新しいTodoの追加</h3>
+        <div class="task-input">
+          <input type="text" id="newTaskTitle" placeholder="タスク名を入力">
+          <select id="newTaskTarget">
+            <option value="1年担任">1年担任</option>
+            <option value="2年担任">2年担任</option>
+            <option value="3年担任">3年担任</option>
+            <option value="4年担任" selected>4年担任</option>
+            <option value="5年担任">5年担任</option>
+            <option value="6年担任">6年担任</option>
+            <option value="教務主任">教務主任</option>
+            <option value="保健主事">保健主事</option>
+            <option value="全校共通">全校共通</option>
+          </select>
+          <input type="date" id="newTaskDate">
+          <button class="btn" onclick="addTask()">追加</button>
+        </div>
+      </div>
+
+      <div class="board">
+        <div class="column" ondragover="allowDrop(event)" ondrop="drop(event, 'todo')">
+          <div class="column-header column-todo">
+            <span>未着手</span>
+            <span id="count-todo" style="font-size: 12px; background:#fff; padding:2px 8px; border-radius:10px;">0</span>
+          </div>
+          <div class="task-list" id="list-todo"></div>
+        </div>
+
+        <div class="column" ondragover="allowDrop(event)" ondrop="drop(event, 'doing')">
+          <div class="column-header column-doing">
+            <span>進行中</span>
+            <span id="count-doing" style="font-size: 12px; background:#fff; padding:2px 8px; border-radius:10px;">0</span>
+          </div>
+          <div class="task-list" id="list-doing"></div>
+        </div>
+
+        <div class="column" ondragover="allowDrop(event)" ondrop="drop(event, 'done')">
+          <div class="column-header column-done">
+            <span>完了</span>
+            <span id="count-done" style="font-size: 12px; background:#fff; padding:2px 8px; border-radius:10px;">0</span>
+          </div>
+          <div class="task-list" id="list-done"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Firebaseの設定
+    const firebaseConfig = {
+  apiKey: "AIzaSyD8EjJpKatLj4rsdZdYIn9T7ynd62QbzHU",
+  authDomain: "t-assist-8d796.firebaseapp.com",
+  projectId: "t-assist-8d796",
+  storageBucket: "t-assist-8d796.firebasestorage.app",
+  messagingSenderId: "149966863892",
+  appId: "1:149966863892:web:439e7be0407ccc90ce7101"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const commonTasksRef = db.ref('common_tasks');
+    
+    let commonTasks = [];
+    let myUserStatuses = {};
+    let currentFilter = 'my';
+    let userStatusListener = null;
+
+    // 初期マスタータスク43件
+    const defaultTasks = [
+      { title: '夏休み校内作品展搬入・審査（2限以降）', target: '全校共通', date: '2026-08-31' },
+      { title: 'くらしの知恵創作展 出品名簿提出締切（17:00）', target: '教務主任', date: '2026-08-31' },
+      { title: '5年キャンプ しおり最終配布・諸注意確認', target: '5年担任', date: '2026-09-02' },
+      { title: '5年キャンプ 道具・救急箱準備', target: '保健主事', date: '2026-09-02' },
+      { title: '【行事】5年キャンプ本番（恵庁）', target: '5年担任', date: '2026-09-03' },
+      { title: '読書感想文 校内提出締切', target: '全校共通', date: '2026-09-04' },
+      { title: '【校内行事】命について考える週間スタート', target: '全校共通', date: '2026-09-07' },
+      { title: '3年加子母トマト選果場見学 準備・案内', target: '3年担任', date: '2026-09-09' },
+      { title: 'くらしの知恵展 作品搬入（ひと・まちテラス14:30）', target: '教務主任', date: '2026-09-11' },
+      { title: '【行事】くらしの知恵展 本番（〜13日）', target: '全校共通', date: '2026-09-12' },
+      { title: '4年環境センター見学事前確認（①〜④）', target: '4年担任', date: '2026-09-14' },
+      { title: '成績交換（前期評価）提出準備', target: '全校共通', date: '2026-09-17' },
+      { title: '赤白決定・運動会リレー選手選定', target: '全校共通', date: '2026-09-17' },
+      { title: '1年生活科見学（ふれあい牧場）しおり作成・バス確認', target: '1年担任', date: '2026-09-24' },
+      { title: '成績一覧表 提出締切', target: '全校共通', date: '2026-09-25' },
+      { title: 'ふれあい交流書画展 出品作品提出（校内締切）', target: '教務主任', date: '2026-09-28' },
+      { title: '2年生活科見学（ひと・まちテラス・駅）準備', target: '2年担任', date: '2026-09-28' },
+      { title: '5年森林教室 弁当連絡・現地安全確認', target: '5年担任', date: '2026-10-01' },
+      { title: '【行事】5年森林教室（予備日:10/8）', target: '5年担任', date: '2026-10-02' },
+      { title: '前期通知表印刷・連学点検（〜10/7）', target: '全校共通', date: '2026-10-05' },
+      { title: '運動会総練習 進行マニュアル配布', target: '教務主任', date: '2026-10-19' },
+      { title: '運動会準備（4〜6年児童・職員作業）', target: '全校共通', date: '2026-10-23' },
+      { title: '【行事】運動会 本番（大山神社試楽祭）', target: '全校共通', date: '2026-10-24' },
+      { title: '1年木育②③④（図工室）準備', target: '1年担任', date: '2026-11-04' },
+      { title: '3年消防署・警察署見学 バス申請・事前学習', target: '3年担任', date: '2026-11-05' },
+      { title: '【行事】1・3年 社会見学（消防署・警察署等）', target: '3年担任', date: '2026-11-06' },
+      { title: '6年明治村社会見学 下見・班分け', target: '6年担任', date: '2026-11-11' },
+      { title: '【行事】6年社会見学（明治村）', target: '6年担任', date: '2026-11-12' },
+      { title: '歯科健診準備（1・3・5年）', target: '保健主事', date: '2026-11-12' },
+      { title: '5年トヨタ産業技術記念館見学 アレルギー確認', target: '5年担任', date: '2026-11-12' },
+      { title: '【行事】5年社会見学（トヨタ産業技術記念館・科学館）', target: '5年担任', date: '2026-11-13' },
+      { title: '学力アップチャレンジ週間2 スタート（〜11/20）', target: '全校共通', date: '2026-11-16' },
+      { title: '歯科健診準備（2・4・6年）', target: '保健主事', date: '2026-11-19' },
+      { title: '2年南北交流②③ 授業準備', target: '2年担任', date: '2026-11-26' },
+      { title: '4年木育②③④ 事前確認', target: '4年担任', date: '2026-12-01' },
+      { title: '【行事】清流音楽祭 運営・進行確認', target: '教務主任', date: '2026-12-03' },
+      { title: '体力向上週間スタート（〜12/18）', target: '全校共通', date: '2026-12-07' },
+      { title: '1年南北交流（10:40~付知南小）バス・移動確認', target: '1年担任', date: '2026-12-08' },
+      { title: '6年薬物乱用防止教室⑤ 会場・講師対応準備', target: '6年担任', date: '2026-12-15' },
+      { title: '5年命の教育「動物愛護教室」⑤ 実施準備', target: '5年担任', date: '2026-12-18' },
+      { title: '大掃除週間スタート・手順案内（〜12/24）', target: '全校共通', date: '2026-12-21' },
+      { title: '冬休み前集会③ 設営・進行準備', target: '教務主任', date: '2026-12-24' },
+      { title: '出席簿・学級経営簿提出＆整理', target: '全校共通', date: '2026-12-25' }
+    ];
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const selectEl = document.getElementById('userRole');
+      const savedRole = localStorage.getItem('eduassist_userRole');
+
+      if (savedRole) {
+        selectEl.value = savedRole;
+      } else {
+        selectEl.value = '4年担任';
+        localStorage.setItem('eduassist_userRole', '4年担任');
+      }
+
+      selectEl.addEventListener('change', (e) => {
+        const newRole = e.target.value;
+        localStorage.setItem('eduassist_userRole', newRole);
+        listenUserStatus(newRole);
+      });
+
+      initDatabaseListeners();
+      listenUserStatus(selectEl.value);
+    });
+
+    function initDatabaseListeners() {
+      commonTasksRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          commonTasks = Object.keys(data).map(key => ({ fbKey: key, ...data[key] }));
+        } else {
+          commonTasks = [];
+        }
+        render();
+      });
+    }
+
+    function listenUserStatus(role) {
+      if (userStatusListener) {
+        userStatusListener.off();
+      }
+
+      userStatusListener = db.ref(`user_status/${role}`);
+      userStatusListener.on('value', (snapshot) => {
+        myUserStatuses = snapshot.val() || {};
+        render();
+      });
+    }
+
+    function render() {
+      const userRole = document.getElementById('userRole').value;
+      const columns = {
+        todo: document.getElementById('list-todo'),
+        doing: document.getElementById('list-doing'),
+        done: document.getElementById('list-done')
+      };
+
+      Object.values(columns).forEach(el => el.innerHTML = '');
+
+      const filtered = commonTasks.filter(t => {
+        if (currentFilter === 'all') return true;
+        return t.target === userRole || t.target === '全校共通';
+      });
+
+      filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
+      const counts = { todo: 0, doing: 0, done: 0 };
+
+      filtered.forEach(t => {
+        const status = myUserStatuses[t.fbKey] || 'todo';
+        counts[status]++;
+
+        const card = document.createElement('div');
+        card.className = 'task-card';
+        card.draggable = true;
+        card.ondragstart = (e) => drag(e, t.fbKey);
+
+        card.innerHTML = `
+          <div class="task-title">${t.title}</div>
+          <div class="task-meta">
+            <span class="badge">${t.target}</span>
+            <span class="badge badge-date">期日: ${t.date || '未設定'}</span>
+          </div>
+          <div class="card-actions">
+            <div class="move-btn-group">
+              ${status !== 'todo' ? `<button class="btn-move" onclick="moveTask('${t.fbKey}', 'prev')">←</button>` : ''}
+              ${status !== 'done' ? `<button class="btn-move" onclick="moveTask('${t.fbKey}', 'next')">→</button>` : ''}
+            </div>
+            <button class="btn-del" onclick="deleteTask('${t.fbKey}')">削除</button>
+          </div>
+        `;
+        columns[status].appendChild(card);
+      });
+
+      document.getElementById('count-todo').innerText = counts.todo;
+      document.getElementById('count-doing').innerText = counts.doing;
+      document.getElementById('count-done').innerText = counts.done;
+    }
+
+    function moveTask(fbKey, direction) {
+      const userRole = document.getElementById('userRole').value;
+      const currentStatus = myUserStatuses[fbKey] || 'todo';
+
+      const flow = ['todo', 'doing', 'done'];
+      let idx = flow.indexOf(currentStatus);
+
+      if (direction === 'next' && idx < flow.length - 1) idx++;
+      if (direction === 'prev' && idx > 0) idx--;
+
+      db.ref(`user_status/${userRole}/${fbKey}`).set(flow[idx]);
+    }
+
+    function allowDrop(e) { e.preventDefault(); }
+    function drag(e, fbKey) { e.dataTransfer.setData("text/plain", fbKey); }
+
+    function drop(e, targetStatus) {
+      e.preventDefault();
+      const fbKey = e.dataTransfer.getData("text/plain");
+      const userRole = document.getElementById('userRole').value;
+      if (fbKey) {
+        db.ref(`user_status/${userRole}/${fbKey}`).set(targetStatus);
+      }
+    }
+
+    function addTask() {
+      const title = document.getElementById('newTaskTitle').value;
+      const target = document.getElementById('newTaskTarget').value;
+      const date = document.getElementById('newTaskDate').value;
+      if (!title) return alert('タスク名を入力してください');
+
+      commonTasksRef.push({ title, target, date });
+      document.getElementById('newTaskTitle').value = '';
+    }
+
+    function deleteTask(fbKey) {
+      if (confirm('このタスクを全員のリストから削除しますか？')) {
+        commonTasksRef.child(fbKey).remove();
+      }
+    }
+
+    function filterTasks(type) {
+      currentFilter = type;
+      document.getElementById('btnMy').classList.toggle('active', type === 'my');
+      document.getElementById('btnAll').classList.toggle('active', type === 'all');
+      document.getElementById('viewTitle').innerText = type === 'my' ? '★ 自分に関係するTodo' : '全職員のTodo一覧';
+      render();
+    }
+
+    function syncTasks() {
+      let addedCount = 0;
+      defaultTasks.forEach(defTask => {
+        const exists = commonTasks.some(ct => ct.title === defTask.title && ct.target === defTask.target);
+        if (!exists) {
+          commonTasksRef.push(defTask);
+          addedCount++;
+        }
+      });
+
+      if (addedCount > 0) {
+        alert(`${addedCount} 件の新しい共通タスクを追加・更新しました。`);
+      } else {
+        alert('すでにすべての共通タスクが登録されています。');
+      }
+    }
+
+    function resetDatabase() {
+      if (confirm('【警告】すべての共通タスクと先生方の進捗状況が全削除されます。本当に初期化しますか？')) {
+        if (confirm('本当に削除してよろしいですか？（この操作は元に戻せません）')) {
+          db.ref().set(null, (error) => {
+            if (!error) {
+              defaultTasks.forEach(task => commonTasksRef.push(task));
+              alert('データベースを完全に初期化しました。');
+            }
+          });
+        }
+      }
+    }
+  </script>
+</body>
+</html>
